@@ -120,7 +120,8 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 
     // display image
     string windowName = "3D Objects";
-    cv::namedWindow(windowName, 1);
+    //cv::namedWindow(windowName, 1);
+    cv::namedWindow(windowName, cv::WINDOW_NORMAL);
     cv::imshow(windowName, topviewImg);
 
     if(bWait)
@@ -154,5 +155,78 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    // ...
+    /*Get the candidate bounding boxes matches*/
+	std::map<std::pair<int, int>, int> bbMatchesCand_withOccur;
+	int nbr_of_pairs =1;
+
+	for(auto it_kptm = matches.begin(); it_kptm!=matches.end(); it_kptm++)
+	{
+		cv::KeyPoint kpt_curr = currFrame.keypoints[it_kptm->trainIdx];
+		for(auto it_bb_curr = currFrame.boundingBoxes.begin(); it_bb_curr!= currFrame.boundingBoxes.end(); it_bb_curr++)
+		{
+			/*See if this keypoint match is contained on ROI of this bounding box*/
+			if(it_bb_curr->roi.contains(kpt_curr.pt) == true)
+			{
+				/*Add this keypoint Match to this bounding box*/
+				it_bb_curr->kptMatches.push_back(*it_kptm);
+
+				/*Iterate through previous frame bounding boxes*/
+				for(auto it_bb_prev = prevFrame.boundingBoxes.begin(); it_bb_prev!= prevFrame.boundingBoxes.end(); it_bb_prev++)
+				{
+					cv::KeyPoint kpt_prev = prevFrame.keypoints[it_kptm->queryIdx];
+					if(it_bb_prev->roi.contains(kpt_prev.pt) == true)
+					{
+						if( bbMatchesCand_withOccur.find(std::pair<int,int>(it_bb_curr->boxID, it_bb_prev->boxID)) == bbMatchesCand_withOccur.end() )
+						{
+							bbMatchesCand_withOccur.insert( std::pair<std::pair<int, int>, int>(std::pair<int,int>(it_bb_curr->boxID, it_bb_prev->boxID), 1 ) );
+						}
+						else
+						{
+							bbMatchesCand_withOccur.at(std::pair<int,int>(it_bb_curr->boxID, it_bb_prev->boxID)) = \
+									bbMatchesCand_withOccur.at(std::pair<int,int>(it_bb_curr->boxID, it_bb_prev->boxID))+ 1;
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	/*Get the bounding box with the most number of keypoint matches*/
+	std::map<int, int>::iterator it_tmp;
+	int curr_pivot_bb = bbMatchesCand_withOccur.begin()->first.first;
+	int kpt_match_bb_score = bbMatchesCand_withOccur.begin()->second;
+	int kpt_match_in_bb_thold = 30;
+
+	for(auto it_bbMwOcc = bbMatchesCand_withOccur.begin(); it_bbMwOcc!=bbMatchesCand_withOccur.end(); it_bbMwOcc++)
+	{
+		if(it_bbMwOcc->second >= kpt_match_in_bb_thold)
+		{
+			if(it_bbMwOcc->first.first == curr_pivot_bb)
+			{
+				if(it_bbMwOcc->second > kpt_match_bb_score)
+				{
+					bbBestMatches.at(it_bbMwOcc->first.first) = it_bbMwOcc->first.second;
+					kpt_match_bb_score = it_bbMwOcc->second;
+				}
+			}
+			else
+			{
+				kpt_match_bb_score = it_bbMwOcc->second;
+				curr_pivot_bb = it_bbMwOcc->first.first;
+				bbBestMatches.insert( it_bbMwOcc->first );
+			}
+		}
+	}
+
+/*
+	for(auto i : bbBestMatches)
+	{
+		cout<<i.first<<" "<<i.second<<endl;
+	}
+*/
+
 }
+
+
+
