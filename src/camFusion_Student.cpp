@@ -7,6 +7,8 @@
 
 #include "camFusion.hpp"
 #include "dataStructures.h"
+#include <boost/random.hpp>
+#include <eigen3/Eigen/Dense>
 
 using namespace std;
 
@@ -146,11 +148,165 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 }
 
 
+bool compareLidarPointX (LidarPoint i,LidarPoint j) { return (i.x<j.x); }
+
+
+void computeTTCLidar_median(std::vector<LidarPoint> &lidarPointsPrev,
+                     std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
+{
+
+	sort(lidarPointsPrev.begin(), lidarPointsPrev.end(), compareLidarPointX);
+	sort(lidarPointsCurr.begin(), lidarPointsCurr.end(), compareLidarPointX);
+
+    // find
+    double medianXPrev = 0, medianXCurr = 0;
+
+	if(lidarPointsPrev.size()%2 == 0)
+	{
+		int idx = (int)(lidarPointsPrev.size()/2);
+		medianXPrev = (lidarPointsPrev[idx].x + lidarPointsPrev[idx+1].x)/2;
+	}
+	else
+	{
+		int idx = (int)(lidarPointsPrev.size()/2) + 1;
+		medianXPrev = lidarPointsPrev[idx].x;
+	}
+
+	if(lidarPointsCurr.size()%2 == 0)
+	{
+		int idx = (int)(lidarPointsCurr.size()/2);
+		medianXCurr = (lidarPointsCurr[idx].x + lidarPointsCurr[idx+1].x)/2;
+	}
+	else
+	{
+		int idx = (int)(lidarPointsCurr.size()/2) + 1;
+		medianXCurr = lidarPointsCurr[idx].x;
+	}
+
+    // compute TTC from both measurements
+    TTC = medianXCurr * (1/frameRate) / fabs(medianXPrev - medianXCurr);
+
+
+}
+
+
+
+void calcDist_to_main_vert_plane(std::vector<LidarPoint> &lidarPoints, double &distance)
+{
+	boost::random::mt19937 rng;
+	boost::random::uniform_int_distribution<> idx_gen(0,lidarPoints.size()-1);
+
+	int pindex1, pindex2, pindex3;
+	Eigen::Vector3f v1, v12, v13, normal_vect;
+
+	double distanceThreshold_n;
+	float d;
+	int nbr_inliers_most = 0;
+	Eigen::Vector3f most_normal_vect;
+	Eigen::Vector3f most_v1;
+
+	int cloud_size = lidarPoints.size();
+
+	int maxIterations = 10;
+	double distanceThreshold = 0.2;
+
+
+	for(int iter=0; iter<maxIterations; iter++)
+	{
+		/* get 3 index randomly */
+		pindex1 = idx_gen(rng);
+		pindex2 = idx_gen(rng);
+		pindex3 = idx_gen(rng);
+
+		/*It is almost improbable but just in case let's check points are different*/
+		if( (pindex1==pindex2) || (pindex2==pindex3) || (pindex1==pindex3))
+		{
+			continue;
+		}
+
+		/*Vector from origin to p1*/
+		Eigen::Vector3f v1(lidarPoints[pindex1].x, lidarPoints[pindex1].y, lidarPoints[pindex1].z);
+		Eigen::Vector3f v2(lidarPoints[pindex2].x, lidarPoints[pindex2].y, lidarPoints[pindex2].z);
+		Eigen::Vector3f v3(lidarPoints[pindex3].x, lidarPoints[pindex3].y, lidarPoints[pindex3].z);
+		/*Vector from p1 to p2*/
+		v12 = v2 - v1;
+		/*Vector from p1 to p3*/
+		v13 = v3 - v1;
+		/*Normal vector of plane*/
+		/*
+					normal_vect[0] = v12[1]*v13[2]- v12[2]*v13[1];
+					normal_vect[1] = v12[2]*v13[0]- v12[0]*v13[2];
+					normal_vect[2] = v12[0]*v13[1]- v12[1]*v13[0];
+		 */
+		normal_vect = v12.cross(v13);
+		distanceThreshold_n = distanceThreshold*normal_vect.norm();
+		int nbr_inliers=0;
+		/*Measure distance between every point and fitted line*/
+		for(int index=0; index< cloud_size; index++)
+		{
+			Eigen::Vector3f vp(lidarPoints[index].x, lidarPoints[index].y, lidarPoints[index].z);
+			d = fabs(normal_vect.dot(vp-v1));
+
+			/*If distance is smaller than threshold count it as inlier*/
+			if (d<=distanceThreshold_n)
+			{
+				nbr_inliers++;
+			}
+		}
+
+		if (nbr_inliers>nbr_inliers_most)
+		{
+			nbr_inliers_most = nbr_inliers;
+			most_normal_vect = normal_vect;
+			most_v1 = v1;
+		}
+	}
+
+	/*Now search the minimal horizontal distance in the inliers using the best parameters*/
+	distanceThreshold_n = distanceThreshold*most_normal_vect.norm();
+
+	double min_horizont_dist = 10000;
+
+	for(int index=0; index< cloud_size; index++)
+	{
+		/*p = cloud->points[index];
+		  vp = p.getVector3fMap();*/
+		Eigen::Vector3f vp(lidarPoints[index].x, lidarPoints[index].y, lidarPoints[index].z);
+		d = fabs(most_normal_vect.dot(vp-most_v1));
+
+		/*If distance is smaller than threshold count it as inlier*/
+		if (d<=distanceThreshold_n)
+		{
+			/*Get the minimal horizontal distance of the inliers*/
+			if(lidarPoints[index].x < min_horizont_dist)
+			{
+				min_horizont_dist = lidarPoints[index].x;
+			}
+		}
+	}
+
+	distance = min_horizont_dist;
+
+}
+
+
+
+
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+
+	double minDistCurr, minDistPrev;
+
+	calcDist_to_main_vert_plane(lidarPointsPrev, minDistPrev);
+	calcDist_to_main_vert_plane(lidarPointsCurr, minDistCurr);
+
+
+	// compute TTC from both measurements
+	TTC = minDistCurr * (1/frameRate) / fabs(minDistPrev - minDistCurr);
+
 }
+
 
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
