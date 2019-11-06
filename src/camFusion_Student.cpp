@@ -136,23 +136,20 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
-
-
-	/*Calculate mean*/
+	/* To calculate mean*/
 	cv::Point2f mean_prev(0, 0);
 	cv::Point2f mean_curr(0, 0);
 	double mean_dist_curr_prev = 0;
 	std::vector<cv::DMatch> kptMatchesCand;
 
-
-
-	float cropFactor = 0;
+	/* One way to suppress outliers can be crop the ROI by using a crop factor
+	   According to my tests cropping the ROI did not show any visible improvement*/
+	double cropFactor = 0;
 	cv::Rect croppedROI;
 	croppedROI.x = boundingBox.roi.x + cropFactor * boundingBox.roi.width / 2.0;
 	croppedROI.y = boundingBox.roi.y + cropFactor * boundingBox.roi.height / 2.0;
 	croppedROI.width = boundingBox.roi.width * (1 - cropFactor);
 	croppedROI.height = boundingBox.roi.height * (1 - cropFactor);
-
 
 	/*select keypoint matches inside ROI*/
 	for(auto kptmatch : kptMatches)
@@ -163,64 +160,60 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 		}
 	}
 
-	/*Calculate mean*/
+	cout<<"Number of kptMatchs inside ROI: "<< kptMatchesCand.size() << endl;
+
+	/*Calculate means*/
 	int kptMatchNbr = kptMatchesCand.size();
 	for(auto kptmatch : kptMatchesCand)
 	{
-		/*
-		mean_prev.x = mean_prev.x + kptsPrev[kptmatch.queryIdx].pt.x;
-		mean_prev.y = mean_prev.y + kptsPrev[kptmatch.queryIdx].pt.y;
-		mean_curr.x = mean_curr.x + kptsCurr[kptmatch.trainIdx].pt.x;
-		mean_curr.y = mean_curr.y + kptsCurr[kptmatch.trainIdx].pt.y;
-		*/
 		mean_curr = mean_curr + kptsCurr[kptmatch.trainIdx].pt;
 		mean_prev = mean_prev + kptsPrev[kptmatch.queryIdx].pt;
 		mean_dist_curr_prev = mean_dist_curr_prev + cv::norm(kptsCurr[kptmatch.trainIdx].pt - kptsPrev[kptmatch.queryIdx].pt);
-	}
+	}	
 
-	cout<<"_-_-_-_-_-_-_-_-_-_-_-_  "<< kptMatchesCand.size() << endl;
-	/*
-	mean_prev.x = mean_prev.x/kptMatchNbr;
-	mean_prev.y = mean_prev.y/kptMatchNbr;
-	mean_curr.x = mean_curr.x/kptMatchNbr;
-	mean_curr.y = mean_curr.y/kptMatchNbr;
-	*/
 	mean_curr = mean_curr/kptMatchNbr;
 	mean_prev = mean_prev/kptMatchNbr;
 	mean_dist_curr_prev = mean_dist_curr_prev/kptMatchNbr;
-	cout<<"######## "<< mean_curr.x <<" " << mean_curr.y << endl;
-	cout<<"######## "<< mean_prev.x <<" " << mean_prev.y << endl;
-
-	double dist_to_mean_th = 200;
-	double dist_to_mean_th_2 = pow(dist_to_mean_th, 2);
+/*
+	cout<<"Mean point current "<< mean_curr.x <<" " << mean_curr.y << endl;
+	cout<<"Mean point previous "<< mean_prev.x <<" " << mean_prev.y << endl;
+	cout<<"Mean distance between kpt curr and prev "<< mean_dist_curr_prev << endl;
+*/
 	double std_dev_prev = 0;
 	double std_dev_curr = 0;
+	double std_dev_dist_curr_prev = 0;
 
 	/*calculate standard deviation*/
 	for(auto kptmatch : kptMatchesCand)
 	{
 		std_dev_curr = std_dev_curr + pow(cv::norm(mean_curr - kptsCurr[kptmatch.trainIdx].pt), 2);
 		std_dev_prev = std_dev_prev + pow(cv::norm(mean_prev - kptsPrev[kptmatch.queryIdx].pt), 2);
+		std_dev_dist_curr_prev = std_dev_dist_curr_prev + \
+		pow(mean_dist_curr_prev - (cv::norm(kptsCurr[kptmatch.trainIdx].pt - kptsPrev[kptmatch.queryIdx].pt)) , 2);
 	}
 	std_dev_curr = sqrt(std_dev_curr/(kptMatchNbr-1));
 	std_dev_prev = sqrt(std_dev_prev/(kptMatchNbr-1));
-	cout<<"std_dev_curr  "<< std_dev_curr <<" " << endl;
-	cout<<"std_dev_prev  "<< std_dev_prev <<" " << endl;
-
-	/*Take only kptMatch near to the mean*/
+	std_dev_dist_curr_prev = sqrt(std_dev_dist_curr_prev/(kptMatchNbr-1));
+/*
+	cout<<"std_dev_curr  "<< std_dev_curr << endl;
+	cout<<"std_dev_prev  "<< std_dev_prev << endl;
+	cout<<"std_dev_dist_curr_prev  "<< std_dev_dist_curr_prev << endl;
+*/
+	/*Take only kptMatchs that have distance to mean less than standard deviation*/
 	for(auto kptmatch : kptMatchesCand)
 	{
 		double dist_prev = cv::norm(kptsPrev[kptmatch.queryIdx].pt- mean_prev);
 		double dist_curr = cv::norm(kptsCurr[kptmatch.trainIdx].pt- mean_curr);
 		double dist_curr_prev = cv::norm(kptsCurr[kptmatch.trainIdx].pt- kptsPrev[kptmatch.queryIdx].pt);
-		if( (dist_curr<=std_dev_curr) /*&& (dist_prev <=std_dev_prev) && (dist_curr_prev<=mean_dist_curr_prev*1.5) && (dist_curr_prev>=mean_dist_curr_prev*0.5)*/)
+		/* I tried different combination of conditions to filter out outliers 
+		   the most effective condition was dist_curr_prev<=std_dev_dist_curr_prev */
+		if( /*(dist_curr<=std_dev_curr) && (dist_prev <=std_dev_prev) && */(dist_curr_prev<=std_dev_dist_curr_prev) )
 		{
 			boundingBox.kptMatches.push_back(kptmatch);
-			boundingBox.keypoints.push_back(kptsCurr[kptmatch.trainIdx]);
-			//cout<<"*-*-*-*-*-*-*- "<< kptsCurr[kptmatch.trainIdx].pt.x <<" " << kptsCurr[kptmatch.trainIdx].pt.y<<endl;
+			boundingBox.keypoints.push_back(kptsCurr[kptmatch.trainIdx]);			
 		}
 	}
-	cout<<"------> boundingBox.keypoints size: "<<boundingBox.keypoints.size()<<endl;
+	cout<<"boundingBox.keypoints size: "<<boundingBox.keypoints.size()<<endl;
 }
 
 
@@ -228,8 +221,16 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-	// compute distance ratios between all matched keypoints
+	// To compute distance ratios between all matched keypoints
 	vector<double> distRatios;
+	/* Minimal distance between keypoints to be considered for distance ratio calculation
+	   This parameter is critical for stability of this algorithm
+	   a little change on its value changes a lot the results. 
+	   In this application distances between the keypoints of the car tail are far enough
+	   to choose a value of 100 but at this moment it is unknown if this approach will work
+	   for smaller obstacles like persones or poles*/
+	double minDist = 100; 
+
 	for (auto it1 = kptMatches.begin(); it1 != kptMatches.end() - 1; ++it1)
 	{ // outer kpt. loop
 
@@ -238,9 +239,7 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 		cv::KeyPoint kpOuterPrev = kptsPrev.at(it1->queryIdx);
 
 		for (auto it2 = kptMatches.begin() + 1; it2 != kptMatches.end(); ++it2)
-		{ // inner kpt.-loop
-
-			double minDist = 100; // min. required distance
+		{ // inner kpt.-loop		
 
 			// get next keypoint and its matched partner in the prev. frame
 			cv::KeyPoint kpInnerCurr = kptsCurr.at(it2->trainIdx);
@@ -252,15 +251,13 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 
 			if (distPrev > std::numeric_limits<double>::epsilon() && (distCurr >= minDist) )
 			{ // avoid division by zero
-
 				double distRatio = distCurr / distPrev;
 				distRatios.push_back(distRatio);
-
 			}
-		} // eof inner loop over all matched kpts
-	}     // eof outer loop over all matched kpts
+		} 
+	}     
 
-	// only continue if list of distance ratios is not empty
+	/*Check if distRatios vector is empty*/
 	if (distRatios.size() == 0)
 	{
 		TTC = NAN;
@@ -269,29 +266,19 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 
 	/*Taking the median of distances*/
 	std::sort(distRatios.begin(), distRatios.end());
-
-	for(auto distrat: distRatios)
-	{
-		cout<<"distrat "<<distrat<<endl;
-	}
-
 	long medIndex = floor(distRatios.size() / 2.0);
 	double medDistRatio;
-	/*
-	do
-	{
-		medDistRatio = distRatios.size() % 2 == 0 ? (distRatios[medIndex - 1] + distRatios[medIndex]) / 2.0 : distRatios[medIndex]; // compute median dist. ratio to remove outlier influence
-		medIndex++;
-	}
-	while(medDistRatio==1);
-*/
-
 	medDistRatio = distRatios.size() % 2 == 0 ? (distRatios[medIndex - 1] + distRatios[medIndex]) / 2.0 : distRatios[medIndex]; // compute median dist. ratio to remove outlier influence
+	/*
+	cout<<"medDistRatio: "<<medDistRatio<<endl;
+	*/
+	cout<<"Nbr of kpt dist ratios used to find median TTC: "<< distRatios.size()<<endl;
 
-	cout<<"======"<<medDistRatio<<endl;
-
-	TTC = -(1 / frameRate) / (1 - medDistRatio);
-
+	/*Assume that if median distance ratio is equal to 1 then the TTC has not changed*/
+	if( fabs(medDistRatio - 1) > std::numeric_limits<double>::epsilon() )
+	{
+		TTC = -(1 / frameRate) / (1 - medDistRatio);
+	}
 }
 
 
