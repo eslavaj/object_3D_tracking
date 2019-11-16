@@ -25,6 +25,28 @@ using namespace std;
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[])
 {
+
+	int num_args = argc;
+	if(num_args!=5)
+	{
+		cout<<"Incorrect argument number"<<endl<<endl;
+		cout<<"Usage: "<<endl;
+		cout<<"      2D_feature_tracking <Detector type> <Descriptor type> <Matcher type> <Match selector type>"<<endl;
+		cout<<"Detector types: SHITOMASI , HARRIS , FAST , BRISK , ORB, AKAZE , SIFT"<<endl;
+		cout<<"Descriptor types: BRISK , BRIEF , ORB , FREAK , AKAZE , SIFT"<<endl;
+		cout<<"Matcher types: MAT_BF, MAT_FLANN"<<endl;
+		cout<<"Selector types: SEL_NN , SEL_KNN"<<endl;
+		cout<<"Note: you can only use AKAZE detector with AKAZE descriptor, so don't mix AKAZE det/desc with oher options"<<endl;
+		return -1;
+	}
+
+	string detectorType = argv[1];
+	string descriptorType = argv[2];
+	string matcherType = argv[3];
+	string selectorType = argv[4];
+
+
+
     /* INIT VARIABLES AND DATA STRUCTURES */
 
     // data location
@@ -151,15 +173,22 @@ int main(int argc, const char *argv[])
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "SHITOMASI";
+        //string detectorType = "SHITOMASI";
 
         if (detectorType.compare("SHITOMASI") == 0)
         {
-            detKeypointsShiTomasi(keypoints, imgGray, false);
+        	detKeypointsShiTomasi(keypoints, imgGray, false);
         }
         else
         {
-            //...
+        	if (detectorType.compare("HARRIS") == 0)
+        	{
+        		detKeypointsHarris(keypoints, imgGray, false);
+        	}
+        	else
+        	{
+        		detKeypointsModern(keypoints, imgGray, detectorType, false);
+        	}
         }
 
         // optional : limit number of keypoints (helpful for debugging and learning)
@@ -200,13 +229,21 @@ int main(int argc, const char *argv[])
             /* MATCH KEYPOINT DESCRIPTORS */
 
             vector<cv::DMatch> matches;
-            string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+            //string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
+            string descriptorFamily; 			  // DES_BINARY, DES_HOG
+            if( (descriptorType.compare("SIFT")==0) || (descriptorType.compare("AKAZE")==0))
+            {
+            	descriptorFamily = "DES_HOG";
+            }
+            else
+            {
+            	descriptorFamily = "DES_BINARY";
+            }
+
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
-                             (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
-                             matches, descriptorType, matcherType, selectorType);
+            		(dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
+					matches, descriptorFamily, matcherType, selectorType);
 
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;

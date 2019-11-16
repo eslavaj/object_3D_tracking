@@ -207,7 +207,7 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 		double dist_curr_prev = cv::norm(kptsCurr[kptmatch.trainIdx].pt- kptsPrev[kptmatch.queryIdx].pt);
 		/* I tried different combination of conditions to filter out outliers 
 		   the most effective condition was dist_curr_prev<=std_dev_dist_curr_prev */
-		if( /*(dist_curr<=std_dev_curr) && (dist_prev <=std_dev_prev) && */(dist_curr_prev<=std_dev_dist_curr_prev) )
+		if( /*(dist_curr<=std_dev_curr) && (dist_prev <=std_dev_prev) && */ (dist_curr_prev<=std_dev_dist_curr_prev) )
 		{
 			boundingBox.kptMatches.push_back(kptmatch);
 			boundingBox.keypoints.push_back(kptsCurr[kptmatch.trainIdx]);			
@@ -229,7 +229,7 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 	   In this application distances between the keypoints of the car tail are far enough
 	   to choose a value of 100 but at this moment it is unknown if this approach will work
 	   for smaller obstacles like persones or poles*/
-	double minDist = 100; 
+	double minDist = 100;
 
 	for (auto it1 = kptMatches.begin(); it1 != kptMatches.end() - 1; ++it1)
 	{ // outer kpt. loop
@@ -367,11 +367,6 @@ void calcDist_to_main_vert_plane(std::vector<LidarPoint> &lidarPoints, double &d
 		/*Vector from p1 to p3*/
 		v13 = v3 - v1;
 		/*Normal vector of plane*/
-		/*
-					normal_vect[0] = v12[1]*v13[2]- v12[2]*v13[1];
-					normal_vect[1] = v12[2]*v13[0]- v12[0]*v13[2];
-					normal_vect[2] = v12[0]*v13[1]- v12[1]*v13[0];
-		 */
 		normal_vect = v12.cross(v13);
 		distanceThreshold_n = distanceThreshold*normal_vect.norm();
 		int nbr_inliers=0;
@@ -403,8 +398,6 @@ void calcDist_to_main_vert_plane(std::vector<LidarPoint> &lidarPoints, double &d
 
 	for(int index=0; index< cloud_size; index++)
 	{
-		/*p = cloud->points[index];
-		  vp = p.getVector3fMap();*/
 		Eigen::Vector3f vp(lidarPoints[index].x, lidarPoints[index].y, lidarPoints[index].z);
 		d = fabs(most_normal_vect.dot(vp-most_v1));
 
@@ -422,8 +415,6 @@ void calcDist_to_main_vert_plane(std::vector<LidarPoint> &lidarPoints, double &d
 	distance = min_horizont_dist;
 
 }
-
-
 
 
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
