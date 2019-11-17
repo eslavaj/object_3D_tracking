@@ -134,7 +134,7 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 
 
 // associate a given bounding box with the keypoints it contains
-void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
+void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches, TTCStats &stats)
 {
 	/* To calculate mean*/
 	cv::Point2f mean_prev(0, 0);
@@ -214,12 +214,16 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 		}
 	}
 	cout<<"boundingBox.keypoints size: "<<boundingBox.keypoints.size()<<endl;
+
+	/*update stats*/
+	stats.setNumKeyPointsPerRoi(boundingBox.keypoints.size());
+
 }
 
 
 // Compute time-to-collision (TTC) based on keypoint correspondences in successive images
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
-                      std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
+                      std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, TTCStats &stats, cv::Mat *visImg)
 {
 	// To compute distance ratios between all matched keypoints
 	vector<double> distRatios;
@@ -279,6 +283,9 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 	{
 		TTC = -(1 / frameRate) / (1 - medDistRatio);
 	}
+
+	/*update stats*/
+	stats.setTtcCamera(TTC);
 }
 
 
@@ -418,7 +425,7 @@ void calcDist_to_main_vert_plane(std::vector<LidarPoint> &lidarPoints, double &d
 
 
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
-                     std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
+                     std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC, TTCStats &stats)
 {
 
 	double minDistCurr, minDistPrev;
@@ -428,7 +435,10 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 
 	// compute TTC from both measurements
-	TTC = minDistCurr * (1/frameRate) / fabs(minDistPrev - minDistCurr);
+	//TTC = minDistCurr * (1/frameRate) / fabs(minDistPrev - minDistCurr);
+	TTC = minDistCurr * (1/frameRate) / (minDistPrev - minDistCurr);
+	/*update stats*/
+	stats.setTtcLidar(TTC);
 
 }
 

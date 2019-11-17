@@ -19,6 +19,7 @@
 #include "objectDetection2D.hpp"
 #include "lidarData.hpp"
 #include "camFusion.hpp"
+#include "TTCStats.hpp"
 
 using namespace std;
 
@@ -45,6 +46,28 @@ int main(int argc, const char *argv[])
 	string matcherType = argv[3];
 	string selectorType = argv[4];
 
+
+	/*Open file to write data*/
+	std::string filename = "../report_perf_cam_TTC/report_";
+	filename.append(detectorType);
+	filename.append("_");
+	filename.append(descriptorType);
+	filename.append(".csv");
+	std::ofstream output_stream(filename, std::ios::binary);
+
+	if (!output_stream.is_open()) {
+		std::cerr << "failed to open file: " << filename << std::endl;
+		return EXIT_FAILURE;
+	}
+
+
+	/*Create object to store stats*/
+	TTCStats stats(detectorType, descriptorType, matcherType, selectorType);
+	/*print header to report file*/
+	output_stream << stats.getStatsHeader()<<endl;
+
+	/*variable to store the frame number counting just processed frames*/
+	int frm_nbr = 1;
 
 
     /* INIT VARIABLES AND DATA STRUCTURES */
@@ -177,17 +200,17 @@ int main(int argc, const char *argv[])
 
         if (detectorType.compare("SHITOMASI") == 0)
         {
-        	detKeypointsShiTomasi(keypoints, imgGray, false);
+        	detKeypointsShiTomasi(keypoints, imgGray, stats, false);
         }
         else
         {
         	if (detectorType.compare("HARRIS") == 0)
         	{
-        		detKeypointsHarris(keypoints, imgGray, false);
+        		detKeypointsHarris(keypoints, imgGray, stats, false);
         	}
         	else
         	{
-        		detKeypointsModern(keypoints, imgGray, detectorType, false);
+        		detKeypointsModern(keypoints, imgGray, detectorType, stats, false);
         	}
         }
 
@@ -215,7 +238,7 @@ int main(int argc, const char *argv[])
 
         cv::Mat descriptors;
         string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
-        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
+        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType, stats);
 
         // push descriptors for current frame to end of data buffer
         (dataBuffer.end() - 1)->descriptors = descriptors;
@@ -243,7 +266,7 @@ int main(int argc, const char *argv[])
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
             		(dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
-					matches, descriptorFamily, matcherType, selectorType);
+					matches, descriptorFamily, matcherType, selectorType, stats);
 
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;
@@ -294,15 +317,24 @@ int main(int argc, const char *argv[])
                     //// STUDENT ASSIGNMENT
                     //// TASK FP.2 -> compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
                     double ttcLidar; 
-                    computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar);
+                    computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar, stats);
                     //// EOF STUDENT ASSIGNMENT
 
                     //// STUDENT ASSIGNMENT
                     //// TASK FP.3 -> assign enclosed keypoint matches to bounding box (implement -> clusterKptMatchesWithROI)
                     //// TASK FP.4 -> compute time-to-collision based on camera (implement -> computeTTCCamera)
                     //double ttcCamera;
-                    clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);                    
-                    computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
+                    clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches, stats);
+                    computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera, stats);
+
+                    /*Update frame number on stats*/
+                    stats.setFramenbr(frm_nbr);
+
+                    /*print stats to report file*/
+                    output_stream << stats.getStats()<<endl;
+
+                    /*Increment frame number*/
+                    frm_nbr++;
                     //// EOF STUDENT ASSIGNMENT
 
                     bVis = true;
@@ -331,6 +363,7 @@ int main(int argc, const char *argv[])
         }
 
     } // eof loop over all images
+
 
     return 0;
 }
