@@ -31,3 +31,24 @@ In this final project, you will implement the missing parts in the schematic. To
 2. Make a build directory in the top level project directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./3D_object_tracking`.
+
+## Performance Evaluation 1
+
+According to the results of TTC based on Lidar points, We can see that TTC seems to be incorrect on pictures A, B and correct in pictures D, E.
+The difference between the 2 group of pictures is that lidar points distribution tends to approximate more a straight line (or vertical plane in 3D) on correct pictures than on incorrect pictures.
+
+### Fig. A
+<img src="images/figA_ld.png" width="1079" height="525" />
+
+### Fig. B
+<img src="images/figB_ld.png" width="1079" height="525" />
+
+### Fig. D
+<img src="images/figD_ld.png" width="1079" height="525" />
+
+### Fig. E
+<img src="images/figE_ld.png" width="1079" height="525" />
+
+
+
+  
