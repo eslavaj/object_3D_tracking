@@ -133,8 +133,9 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 }
 
 
+//#define CHECK_PREVBB_ROI (1)
 // associate a given bounding box with the keypoints it contains
-void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches, TTCStats &stats)
+void clusterKptMatchesWithROI(BoundingBox &boundingBox, BoundingBox &prev_boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches, TTCStats &stats)
 {
 	/* To calculate mean*/
 	cv::Point2f mean_prev(0, 0);
@@ -151,11 +152,23 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 	croppedROI.width = boundingBox.roi.width * (1 - cropFactor);
 	croppedROI.height = boundingBox.roi.height * (1 - cropFactor);
 
+	cv::Rect prev_croppedROI;
+	prev_croppedROI.x = prev_boundingBox.roi.x + cropFactor * prev_boundingBox.roi.width / 2.0;
+	prev_croppedROI.y = prev_boundingBox.roi.y + cropFactor * prev_boundingBox.roi.height / 2.0;
+	prev_croppedROI.width = prev_boundingBox.roi.width * (1 - cropFactor);
+	prev_croppedROI.height = prev_boundingBox.roi.height * (1 - cropFactor);
+
 	/*select keypoint matches inside ROI*/
 	for(auto kptmatch : kptMatches)
 	{
+
+#ifdef CHECK_PREVBB_ROI
+		if( (kptsCurr[kptmatch.trainIdx].pt.inside(croppedROI)) && (kptsPrev[kptmatch.queryIdx].pt.inside(prev_croppedROI))  )
+		{
+#else
 		if(kptsCurr[kptmatch.trainIdx].pt.inside(croppedROI))
 		{
+#endif
 			kptMatchesCand.push_back(kptmatch);
 		}
 	}
@@ -207,10 +220,11 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 		double dist_curr_prev = cv::norm(kptsCurr[kptmatch.trainIdx].pt- kptsPrev[kptmatch.queryIdx].pt);
 		/* I tried different combination of conditions to filter out outliers 
 		   the most effective condition was dist_curr_prev<=std_dev_dist_curr_prev */
-		if( /*(dist_curr<=std_dev_curr) && (dist_prev <=std_dev_prev) && */ (dist_curr_prev<=std_dev_dist_curr_prev) )
+		if( /*(dist_curr<=std_dev_curr) && (dist_prev <=std_dev_prev) && */ (dist_curr_prev<=std_dev_dist_curr_prev))
 		{
 			boundingBox.kptMatches.push_back(kptmatch);
-			boundingBox.keypoints.push_back(kptsCurr[kptmatch.trainIdx]);			
+			boundingBox.keypoints.push_back(kptsCurr[kptmatch.trainIdx]);
+			boundingBox.keypoints_query.push_back(kptsCurr[kptmatch.queryIdx]);
 		}
 	}
 	cout<<"boundingBox.keypoints size: "<<boundingBox.keypoints.size()<<endl;

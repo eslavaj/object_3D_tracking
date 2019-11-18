@@ -23,6 +23,10 @@
 
 using namespace std;
 
+/*To skip waiting for a key and generate report easily*/
+//#define SKIP_WAIT_FOR_REPORT (1)
+
+
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[])
 {
@@ -47,13 +51,17 @@ int main(int argc, const char *argv[])
 	string selectorType = argv[4];
 
 
+
 	/*Open file to write data*/
-	std::string filename = "../report_perf_cam_TTC/report_";
+	std::string filename = "../report_perf_cam_TTC/test_raw_data";
+	/*
 	filename.append(detectorType);
 	filename.append("_");
 	filename.append(descriptorType);
+	*/
 	filename.append(".csv");
-	std::ofstream output_stream(filename, std::ios::binary);
+	std::ofstream output_stream(filename, std::ios::binary | std::ofstream::app);
+	//std::ofstream output_stream(filename, std::ofstream::out | std::ofstream::app);
 
 	if (!output_stream.is_open()) {
 		std::cerr << "failed to open file: " << filename << std::endl;
@@ -63,6 +71,10 @@ int main(int argc, const char *argv[])
 
 	/*Create object to store stats*/
 	TTCStats stats(detectorType, descriptorType, matcherType, selectorType);
+	/*Print some lines just to separate from previous data*/
+	output_stream << stats.getOneLineSpace()<<endl;
+	output_stream << stats.getOneLineSpace()<<endl;
+	output_stream << stats.getOneLineSpace()<<endl;
 	/*print header to report file*/
 	output_stream << stats.getStatsHeader()<<endl;
 
@@ -175,7 +187,12 @@ int main(int argc, const char *argv[])
         clusterLidarWithROI((dataBuffer.end()-1)->boundingBoxes, (dataBuffer.end() - 1)->lidarPoints, shrinkFactor, P_rect_00, R_rect_00, RT);
 
         // Visualize 3D objects
+#ifdef SKIP_WAIT_FOR_REPORT
+        bVis = false;
+#else
         bVis = true;
+#endif
+
         if(bVis)
         {
             show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), false);
@@ -324,7 +341,46 @@ int main(int argc, const char *argv[])
                     //// TASK FP.3 -> assign enclosed keypoint matches to bounding box (implement -> clusterKptMatchesWithROI)
                     //// TASK FP.4 -> compute time-to-collision based on camera (implement -> computeTTCCamera)
                     //double ttcCamera;
-                    clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches, stats);
+                    clusterKptMatchesWithROI(*currBB, *prevBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches, stats);
+
+                    // visualize matches between current and previous image
+#ifdef SKIP_WAIT_FOR_REPORT
+                    bVis = false;
+#else
+                    bVis = true;
+#endif
+                    if (bVis)
+                    {
+                    	cv::Mat matchImg = ((dataBuffer.end() - 1)->cameraImg).clone();
+
+                    	cv::drawMatches((dataBuffer.end() - 2)->cameraImg, (dataBuffer.end() - 2)->keypoints,
+                    			(dataBuffer.end() - 1)->cameraImg, (dataBuffer.end() - 1)->keypoints,
+								currBB->kptMatches, matchImg,
+								cv::Scalar::all(-1), cv::Scalar::all(-1),
+								vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+
+
+                    	/*
+                    	cout<<currBB->keypoints_query.size()<<" "<<currBB->keypoints.size()<<" "<<currBB->kptMatches.size()<<endl;
+
+                    	cv::drawMatches((dataBuffer.end() - 2)->cameraImg, currBB->keypoints_query,
+                    			(dataBuffer.end() - 1)->cameraImg, currBB->keypoints,
+								currBB->kptMatches, matchImg,
+								cv::Scalar::all(-1), cv::Scalar::all(-1),
+								vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+						*/
+
+                    	string windowName = "Matching keypoints between two camera images";
+                    	cv::namedWindow(windowName, 7);
+                    	cv::imshow(windowName, matchImg);
+                    	cout << "Press key to continue to next image" << endl;
+                    	cv::waitKey(0); // wait for key to be pressed
+                    }
+                    bVis = false;
+
+
+
+
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera, stats);
 
                     /*Update frame number on stats*/
@@ -337,7 +393,12 @@ int main(int argc, const char *argv[])
                     frm_nbr++;
                     //// EOF STUDENT ASSIGNMENT
 
+
+#ifdef SKIP_WAIT_FOR_REPORT
+                    bVis = false;
+#else
                     bVis = true;
+#endif
                     if (bVis)
                     {
                         cv::Mat visImg = (dataBuffer.end() - 1)->cameraImg.clone();
@@ -364,6 +425,8 @@ int main(int argc, const char *argv[])
 
     } // eof loop over all images
 
+
+    output_stream.close();
 
     return 0;
 }
