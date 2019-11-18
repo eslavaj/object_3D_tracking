@@ -55,9 +55,9 @@ public:
 
 	  res.append(std::to_string(numKeyPointsPerframe));
 	  res.append(",");
-	  res.append(std::to_string(numKeyPointsPerROI));
-	  res.append(",");
 	  res.append(std::to_string(numMatchedKeyPoints));
+	  res.append(",");
+	  res.append(std::to_string(numKeyPointsPerROI));
 	  res.append(",");
 
 	  res.append(std::to_string(detectorTime));
@@ -79,14 +79,21 @@ public:
   std::string getStatsHeader()
   {
 	  std::string res(\
-			  "Detector Type, Descriptor Type, Frame#, #KeyPointsPerFrame, #KeyPointsPerROI, #MatchedPoints, DetectorTime(ms), DescriptorTime(ms), MatchingTime(ms), " \
+			  "Detector Type, Descriptor Type, Frame#, #KeyPointsPerFrame, #MatchedPoints, #KeyPointsOnROI, DetectorTime(ms), DescriptorTime(ms), MatchingTime(ms), " \
 			  "ttc_camera, ttc_lidar");
 
 	  return res;
 
   }
 
+  std::string getOneLineSpace()
+  {
+	  std::string res(\
+			  " ,  ,  ,  ,  ,  ,  ,  ,  ,  ");
 
+	  return res;
+
+  }
 	double getDescriptorTime() const {
 		return descriptorTime;
 	}
