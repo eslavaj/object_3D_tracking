@@ -347,7 +347,7 @@ int main(int argc, const char *argv[])
 #ifdef SKIP_WAIT_FOR_REPORT
                     bVis = false;
 #else
-                    bVis = true;
+                    bVis = false;
 #endif
                     if (bVis)
                     {
@@ -358,17 +358,6 @@ int main(int argc, const char *argv[])
 								currBB->kptMatches, matchImg,
 								cv::Scalar::all(-1), cv::Scalar::all(-1),
 								vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-
-
-                    	/*
-                    	cout<<currBB->keypoints_query.size()<<" "<<currBB->keypoints.size()<<" "<<currBB->kptMatches.size()<<endl;
-
-                    	cv::drawMatches((dataBuffer.end() - 2)->cameraImg, currBB->keypoints_query,
-                    			(dataBuffer.end() - 1)->cameraImg, currBB->keypoints,
-								currBB->kptMatches, matchImg,
-								cv::Scalar::all(-1), cv::Scalar::all(-1),
-								vector<char>(), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-						*/
 
                     	string windowName = "Matching keypoints between two camera images";
                     	cv::namedWindow(windowName, 7);
