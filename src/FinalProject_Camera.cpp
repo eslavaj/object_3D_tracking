@@ -36,7 +36,7 @@ int main(int argc, const char *argv[])
 	{
 		cout<<"Incorrect argument number"<<endl<<endl;
 		cout<<"Usage: "<<endl;
-		cout<<"      2D_feature_tracking <Detector type> <Descriptor type> <Matcher type> <Match selector type>"<<endl;
+		cout<<"      ./3D_object_tracking <Detector type> <Descriptor type> <Matcher type> <Match selector type>"<<endl;
 		cout<<"Detector types: SHITOMASI , HARRIS , FAST , BRISK , ORB, AKAZE , SIFT"<<endl;
 		cout<<"Descriptor types: BRISK , BRIEF , ORB , FREAK , AKAZE , SIFT"<<endl;
 		cout<<"Matcher types: MAT_BF, MAT_FLANN"<<endl;
