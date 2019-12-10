@@ -1,4 +1,4 @@
-# SFND 3D Object Tracking
+# 3D Object Tracking
 
 Program schematic.
 
