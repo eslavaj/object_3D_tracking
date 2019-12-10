@@ -2,7 +2,7 @@
 
 Program schematic.
 
-<img src="images/course_code_structure.png" width="779" height="414" />
+<img src="images/code_structure.png" width="779" height="414" />
 
 Major blocks: 
 1. Match 3D objects over time by using keypoint correspondences. 
