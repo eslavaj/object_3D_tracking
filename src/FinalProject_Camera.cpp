@@ -202,7 +202,6 @@ int main(int argc, const char *argv[])
         cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
         
         
-        // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
         //continue; // skips directly to the next image without processing what comes beneath
 
         /* DETECT IMAGE KEYPOINTS */
@@ -293,11 +292,9 @@ int main(int argc, const char *argv[])
             
             /* TRACK 3D OBJECT BOUNDING BOXES */
 
-            //// STUDENT ASSIGNMENT
-            //// TASK FP.1 -> match list of 3D objects (vector<BoundingBox>) between current and previous frame (implement ->matchBoundingBoxes)
+            //// match list of 3D objects (vector<BoundingBox>) between current and previous frame (implement ->matchBoundingBoxes)
             map<int, int> bbBestMatches;
             matchBoundingBoxes(matches, bbBestMatches, *(dataBuffer.end()-2), *(dataBuffer.end()-1)); // associate bounding boxes between current and previous frame using keypoint matches
-            //// EOF STUDENT ASSIGNMENT
 
             // store matches in current data frame
             (dataBuffer.end()-1)->bbMatches = bbBestMatches;
@@ -331,15 +328,12 @@ int main(int argc, const char *argv[])
                 // compute TTC for current match
                 if( currBB->lidarPoints.size()>0 && prevBB->lidarPoints.size()>0 ) // only compute TTC if we have Lidar points
                 {
-                    //// STUDENT ASSIGNMENT
-                    //// TASK FP.2 -> compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
+                    //// compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
                     double ttcLidar; 
                     computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar, stats);
-                    //// EOF STUDENT ASSIGNMENT
 
-                    //// STUDENT ASSIGNMENT
-                    //// TASK FP.3 -> assign enclosed keypoint matches to bounding box (implement -> clusterKptMatchesWithROI)
-                    //// TASK FP.4 -> compute time-to-collision based on camera (implement -> computeTTCCamera)
+                    //// assign enclosed keypoint matches to bounding box (implement -> clusterKptMatchesWithROI)
+                    //// compute time-to-collision based on camera (implement -> computeTTCCamera)
                     //double ttcCamera;
                     clusterKptMatchesWithROI(*currBB, *prevBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches, stats);
 
@@ -380,7 +374,6 @@ int main(int argc, const char *argv[])
 
                     /*Increment frame number*/
                     frm_nbr++;
-                    //// EOF STUDENT ASSIGNMENT
 
 
 #ifdef SKIP_WAIT_FOR_REPORT
