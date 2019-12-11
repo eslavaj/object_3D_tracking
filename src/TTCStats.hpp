@@ -1,8 +1,5 @@
 /*
  * printReport.hpp
- *
- *  Created on: Nov 17, 2019
- *      Author: jeslava
  */
 
 #ifndef SRC_TTCSTATS_HPP_
